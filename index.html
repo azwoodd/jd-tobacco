@@ -1,0 +1,217 @@
+<html>
+<head>
+    <base href="https://redwoodcigarettes.com/dashboard/">
+    <title>Redwood Cigarettes - Dashboard</title>
+    <style>
+        body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f400;
+    color: #333;
+    height: 100%;
+    display: flex; /* Enable flexbox */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+}
+
+.dashboard {
+    display: none; /* Hide the dashboard initially */
+    max-width: 800px;
+    width: 100%; /* Ensure it shrinks properly on smaller screens */
+    margin: 0 20px; /* Add side margin for smaller screen */
+    padding: 20px;
+    background-color: rgb(255, 255, 255);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    box-sizing: border-box; /* Ensure padding does not break width */
+}
+
+
+
+        .header {
+            background-color: #8B0000;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .widget {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .widget-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #8B0000;
+        }
+        .stock-counter {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            text-align: center;
+            font-weight: bold;
+        }
+        .delivery-button {
+            display: block;
+            width: 100%;
+            font-size: 1.2rem;
+            padding: 15px;
+            background-color: #8B0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        .delivery-button:hover {
+            background-color: #a50000;
+        }
+        .delivery-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .logs {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            font-size: 0.9rem;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard" id="dashboard">
+        <header class="header">
+            <div class="logo">Redwood Cigarettes Warehouse</div>
+        </header>
+        <div class="widget">
+            <h2 class="widget-title">Current Stock</h2>
+            <div class="stock-counter" id="stockCounter">0 packs</div>
+        </div>
+        <div class="widget">
+            <h2 class="widget-title">Delivery Management</h2>
+            <button class="delivery-button" id="deliveryButton">Start Delivery Job</button>
+        </div>
+        <div class="widget">
+            <h2 class="widget-title">Recent Deliveries</h2>
+            <div class="logs" id="deliveryLogs">
+                <!-- Delivery logs will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stock; // Declare stock without initialization
+        const stockCounter = document.getElementById('stockCounter');
+        const deliveryButton = document.getElementById('deliveryButton');
+        const deliveryLogs = document.getElementById('deliveryLogs');
+        const dashboard = document.getElementById('dashboard'); // Reference to the dashboard
+    
+        function updateStock() {
+            stockCounter.textContent = `${stock.toLocaleString()} packs`;
+        }
+    
+        function addLogEntry(playerName, date, time) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.textContent = `${playerName} / ${time}`;
+            deliveryLogs.insertBefore(logEntry, deliveryLogs.firstChild);
+        }
+    
+        deliveryButton.addEventListener('click', () => {
+            if (stock > 0) {
+                deliveryButton.disabled = true;
+                deliveryButton.textContent = 'On Delivery...';
+    
+                // Send a message to the Lua script to start delivery
+                fetch(`https://${GetParentResourceName()}/startDelivery`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=UTF-8'
+                    },
+                    body: JSON.stringify({})
+                });
+    
+                setTimeout(() => {
+                    deliveryButton.disabled = false;
+                    deliveryButton.textContent = 'Start Delivery Job';
+                }, 5000);
+            }
+        });
+    
+        window.addEventListener('message', function(event) {
+    if (event.data.action === "openUI") {
+        dashboard.style.display = 'block'; // Show the dashboard
+        // Notify the Lua script to set NUI focus
+        fetch(`https://${GetParentResourceName()}/setFocus`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            body: JSON.stringify({ focus: true })
+        });
+    }
+    if (event.data.action === "closeUI") {
+        dashboard.style.display = 'none'; // Hide the dashboard
+        // Notify the Lua script to reset NUI focus
+        fetch(`https://${GetParentResourceName()}/setFocus`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            body: JSON.stringify({ focus: false })
+        });
+    }
+    if (event.data.action === "updateStock") {
+        stock = event.data.stock; 
+        updateStock();
+    }
+    if (event.data.action === "addDeliveryLog") {
+        addLogEntry(event.data.playerName, event.data.date, event.data.time);
+    }
+});
+
+
+window.addEventListener('message', function(event) {
+    if (event.data.action === "updateDeliveryStatus") {
+        if (event.data.status === "not_active") {
+            // Enable the delivery button
+            document.getElementById('startDeliveryButton').disabled = false;
+        }
+        // Add other statuses as needed
+    }
+});
+
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        dashboard.style.display = 'none'; // Hide the dashboard
+        // Notify the Lua script to reset NUI focus
+        fetch(`https://${GetParentResourceName()}/setFocus`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=UTF-8'
+            },
+            body: JSON.stringify({ focus: false })
+        });
+    }
+});
+
+    </script>
+    
+</body>
+</html>
